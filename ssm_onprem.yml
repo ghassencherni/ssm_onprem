@@ -1,0 +1,4 @@
+- hosts: onprem
+  become: yes
+  roles:
+    - ssm_onprem
