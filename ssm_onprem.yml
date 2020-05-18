@@ -1,4 +1,42 @@
-- hosts: onprem
+- hosts: localhost
+  gather_facts: no
+  vars_files:
+    - keys.yml
+  tasks:
+    - name: Create SSM Service Role For Activation
+      iam_role:
+        aws_access_key: "{{ AWS_ACCESS_KEY_ID }}"
+        aws_secret_key: "{{ AWS_SECRET_ACCESS_KEY }}"
+        ec2_region: "{{ AWS_REGION }}"
+        name: SSMServiceRoleForActivation
+        managed_policy: "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+        assume_role_policy_document: "{{ lookup('file','policy.json') }}"
+        description: 
+      register: iam_role
+    - debug:
+        var: iam_role 
+
+        #    - name: creating a hybrid activation for the host
+        #      command: aws ssm create-activation --default-instance-name "{{ inventory_hostname }}" --iam-role SSMServiceRoleForActivation --registration-limit 1
+        #      register: command
+        #
+        #    - debug: 
+        #        var: command
+
+- hosts: on-prem-hosts
   become: yes
-  roles:
-    - ssm_onprem
+  tasks: 
+  - name: install ssm-agent
+    yum:
+      name: https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm
+      state: present
+  
+  - name: creating a hybrid activation for the host
+    command: aws ssm create-activation --default-instance-name "{{ inventory_hostname }}" --iam-role SSMServiceRoleForActivation --registration-limit 1 --region eu-west-3 --output yaml
+    delegate_to: localhost
+    register: command
+
+  - debug:
+          #var: " command.stdout_lines[0] "
+      msg: "{{ command.stdout_lines[0] }}"
+
